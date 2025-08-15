@@ -1,38 +1,33 @@
-# ---------- Build Stage ----------
-FROM eclipse-temurin:17-jdk-jammy AS builder
+# -------- Build Stage --------
+FROM eclipse-temurin:17-jdk-jammy as builder
 
 WORKDIR /app
 
-# Copy Gradle wrapper and build files first (cache dependencies)
-COPY gradlew .
-COPY gradle gradle
-COPY build.gradle .
-COPY settings.gradle .
+# Copy Gradle files separately (better caching)
+COPY TaxiBookingApp/gradlew .
+COPY TaxiBookingApp/gradle gradle
+COPY TaxiBookingApp/build.gradle .
+COPY TaxiBookingApp/settings.gradle .
 
-# Ensure gradlew is executable
+# Download dependencies
 RUN chmod +x gradlew
-
-# Pre-fetch dependencies (cached unless build.gradle changes)
 RUN ./gradlew dependencies --no-daemon || true
 
-# Copy the rest of the source code
-COPY . .
+# Copy the full source code
+COPY TaxiBookingApp/ .
 
-# Reapply permissions (COPY can reset them)
-RUN chmod +x gradlew
-
-# Build the Spring Boot application JAR (skip tests)
+# Build the JAR (skip tests for faster build)
 RUN ./gradlew clean build -x test --no-daemon
 
-
-# ---------- Runtime Stage ----------
+# -------- Runtime Stage --------
 FROM eclipse-temurin:17-jdk-jammy
+
 WORKDIR /app
 
-# Copy only the JAR from the builder stage
+# Copy the built JAR from the builder stage
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Expose the application port
+# Expose port 8080
 EXPOSE 8080
 
 # Run the Spring Boot application
