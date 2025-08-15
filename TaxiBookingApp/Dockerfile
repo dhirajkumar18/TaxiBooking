@@ -1,14 +1,27 @@
-# Use official OpenJDK 17 image as base
-FROM eclipse-temurin:17-jdk-jammy
+# Use official OpenJDK 17 as build image
+FROM eclipse-temurin:17-jdk-jammy as builder
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Copy Gradle/Maven build JAR into the container
-COPY build/libs/*.jar app.jar
+# Copy Gradle files first to leverage caching
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
 
-# Expose the port Spring Boot runs on
+# Download dependencies
+RUN ./gradlew dependencies --no-daemon || true
+
+# Copy the rest of the project
+COPY . .
+
+# Build the JAR
+RUN ./gradlew clean build -x test --no-daemon
+
+# Run image
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
+
 EXPOSE 8080
-
-# Run the JAR file
 ENTRYPOINT ["java", "-jar", "app.jar"]
