@@ -3,17 +3,20 @@ FROM eclipse-temurin:17-jdk-jammy as builder
 
 WORKDIR /app
 
-# Copy Gradle files from TaxiBookingApp folder
-COPY TaxiBookingApp/gradlew .
-COPY TaxiBookingApp/gradle gradle
-COPY TaxiBookingApp/build.gradle .
-COPY TaxiBookingApp/settings.gradle .
+# Copy Gradle files first
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+
+# Give gradlew execute permissions
+RUN chmod +x gradlew
 
 # Download dependencies
 RUN ./gradlew dependencies --no-daemon || true
 
 # Copy the rest of the project
-COPY TaxiBookingApp/ .
+COPY . .
 
 # Build the JAR
 RUN ./gradlew clean build -x test --no-daemon
