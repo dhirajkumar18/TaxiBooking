@@ -1,34 +1,32 @@
-# -------- Build Stage --------
-FROM eclipse-temurin:17-jdk-jammy as builder
+# 1️⃣ Use a Gradle image with JDK 17 for building
+FROM gradle:8.7.0-jdk17 AS builder
 
+# Set working directory inside the container
 WORKDIR /app
 
-# Copy Gradle files separately (better caching)
-COPY TaxiBookingApp/gradlew .
-COPY TaxiBookingApp/gradle gradle
-COPY TaxiBookingApp/build.gradle .
-COPY TaxiBookingApp/settings.gradle .
+# Copy only Gradle config first (for caching dependencies)
+COPY build.gradle settings.gradle gradle.properties ./
+COPY gradle ./gradle
 
 # Download dependencies
-RUN chmod +x gradlew
-RUN ./gradlew dependencies --no-daemon || true
+RUN gradle dependencies --no-daemon || return 0
 
-# Copy the full source code
-COPY TaxiBookingApp/ .
+# Now copy the rest of the application
+COPY . .
 
-# Build the JAR (skip tests for faster build)
-RUN ./gradlew clean build -x test --no-daemon
+# Build the application without tests
+RUN gradle clean build -x test --no-daemon
 
-# -------- Runtime Stage --------
+# 2️⃣ Use a smaller JDK image for running the app
 FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /app
 
-# Copy the built JAR from the builder stage
+# Copy built jar from builder stage
 COPY --from=builder /app/build/libs/*.jar app.jar
 
-# Expose port 8080
+# Expose the port your app runs on
 EXPOSE 8080
 
-# Run the Spring Boot application
+# Run the Spring Boot app
 ENTRYPOINT ["java", "-jar", "app.jar"]
