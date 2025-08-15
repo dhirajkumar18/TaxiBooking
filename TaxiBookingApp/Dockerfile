@@ -1,36 +1,24 @@
-# ---------- Build Stage ----------
-FROM eclipse-temurin:17-jdk-jammy AS builder
+FROM eclipse-temurin:17-jdk-jammy as builder
 
 WORKDIR /app
 
-# Copy Gradle wrapper and build files first (for caching)
+# Copy Gradle wrapper and build files
 COPY TaxiBookingApp/gradlew .
 COPY TaxiBookingApp/gradle gradle
 COPY TaxiBookingApp/build.gradle .
 COPY TaxiBookingApp/settings.gradle .
 
-# Give execute permission to gradlew
+# Ensure gradlew is executable
 RUN chmod +x gradlew
 
-# Pre-download dependencies (so they can be cached)
+# Pre-fetch dependencies
 RUN ./gradlew dependencies --no-daemon || true
 
-# Copy the rest of the source code
+# Copy the rest of the source
 COPY TaxiBookingApp/ .
 
-# Build the application (skip tests for faster build)
+# IMPORTANT: Reapply permissions after final copy
+RUN chmod +x gradlew
+
+# Build the JAR
 RUN ./gradlew clean build -x test --no-daemon
-
-# ---------- Run Stage ----------
-FROM eclipse-temurin:17-jdk-jammy
-
-WORKDIR /app
-
-# Copy the built JAR from builder stage
-COPY --from=builder /app/build/libs/*.jar app.jar
-
-# Expose the application port
-EXPOSE 8080
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
